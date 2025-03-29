@@ -10,7 +10,6 @@ static DATA2: &[u8] = include_bytes!("data2.txt");
 static K: usize = 8;
 
 fn criterion_find_matching_substrings(c: &mut Criterion) {
-    
     let base = 256;
     let mod_value = 1_000_000_007;
 
@@ -23,7 +22,6 @@ fn criterion_find_matching_substrings(c: &mut Criterion) {
 }
 
 fn criterion_compute_hashes_opencl(c: &mut Criterion) {
-    
     let base = 256;
     let mod_value = 1_000_000_007;
 
@@ -37,7 +35,6 @@ fn criterion_compute_hashes_opencl(c: &mut Criterion) {
 }
 
 fn criterion_compare_hashes(c: &mut Criterion) {
-   
     let base = 256;
     let mod_value = 1_000_000_007;
 
