@@ -1,9 +1,10 @@
-
 use anyhow::Result;
 use ocl::{Buffer, Kernel, Program, Queue};
 use std::collections::HashMap;
 
-fn compute_base_powers(base: u64, k: usize, mod_value: u64) -> Vec<u64> {
+/// Computes the base powers for Rabin-Karp algorithm.
+/// The base powers are used to calculate the hash values of substrings.
+pub fn compute_base_powers(base: u64, k: usize, mod_value: u64) -> Vec<u64> {
     let mut powers = Vec::with_capacity(k);
     let mut current = 1u64;
     for _ in 0..k {
@@ -14,14 +15,27 @@ fn compute_base_powers(base: u64, k: usize, mod_value: u64) -> Vec<u64> {
     powers
 }
 
-fn compute_hashes_opencl(
+/// Computes the Rabin-Karp hashes of all substrings of length `k` in the given data using OpenCL.
+/// The hashes are computed using the base powers and modulo value provided.
+/// The function uses OpenCL to parallelize the hash computation for better performance.
+/// If `k` is 0, returns an error. If the data length is shorter than `k`, returns an error.
+/// Returns a vector of hashes.
+pub fn compute_hashes_opencl(
     data: &[u8],
     k: usize,
     base_powers: &[u64],
     mod_value: u64,
 ) -> Result<Vec<u64>> {
+    if k == 0 {
+        return Err(anyhow::anyhow!("k must be at least 1"));
+    }
+
+    if data.len() < k - 1 {
+        return Err(anyhow::anyhow!("data lengnth is shorter than k"));
+    }
+
     let data_len = data.len();
-    let hashes_len = data_len.checked_sub(k).map(|n| n + 1).unwrap_or(0);
+    let hashes_len = data_len - k + 1;
 
     if hashes_len == 0 {
         return Ok(Vec::new());
@@ -92,7 +106,9 @@ fn compute_hashes_opencl(
         .arg(&hashes_buffer)
         .build()?;
 
-    unsafe { kernel.enq()?; }
+    unsafe {
+        kernel.enq()?;
+    }
 
     let mut hashes = vec![0; hashes_len];
     hashes_buffer.read(&mut hashes).enq()?;
@@ -100,6 +116,45 @@ fn compute_hashes_opencl(
     Ok(hashes)
 }
 
+pub fn compare_hashes(
+    hashes1: &[u64],
+    hashes2: &[u64],
+    data1: &[u8],
+    data2: &[u8],
+    k: usize,
+) -> Vec<(usize, usize)> {
+    let mut matches = Vec::new();
+
+    let mut map1: HashMap<u64, Vec<usize>> = HashMap::new();
+    for (i, &hash) in hashes1.iter().enumerate() {
+        map1.entry(hash).or_default().push(i);
+    }
+
+    let mut map2: HashMap<u64, Vec<usize>> = HashMap::new();
+    for (i, &hash) in hashes2.iter().enumerate() {
+        map2.entry(hash).or_default().push(i);
+    }
+
+    for (hash, indices1) in map1 {
+        if let Some(indices2) = map2.get(&hash) {
+            for &i in &indices1 {
+                let substring1 = &data1[i..i + k];
+                for &j in indices2 {
+                    let substring2 = &data2[j..j + k];
+                    if substring1 == substring2 {
+                        matches.push((i, j));
+                    }
+                }
+            }
+        }
+    }
+
+    matches
+}
+
+/// Finds matching substrings of length `k` in two byte arrays using Rabin-Karp algorithm with OpenCL.  
+/// The function computes the hashes of all substrings of length `k` in both arrays and finds matches.
+/// Returns a vector of tuples containing the starting indices of matching substrings in both arrays.
 pub fn find_matching_substrings(
     data1: &[u8],
     data2: &[u8],
@@ -119,35 +174,10 @@ pub fn find_matching_substrings(
     let hashes1 = compute_hashes_opencl(data1, k, &base_powers, mod_value)?;
     let hashes2 = compute_hashes_opencl(data2, k, &base_powers, mod_value)?;
 
-    let mut map1: HashMap<u64, Vec<usize>> = HashMap::new();
-    for (i, &hash) in hashes1.iter().enumerate() {
-        map1.entry(hash).or_default().push(i);
-    }
-
-    let mut map2: HashMap<u64, Vec<usize>> = HashMap::new();
-    for (i, &hash) in hashes2.iter().enumerate() {
-        map2.entry(hash).or_default().push(i);
-    }
-
-    let mut matches = Vec::new();
-
-    for (hash, indices1) in map1 {
-        if let Some(indices2) = map2.get(&hash) {
-            for &i in &indices1 {
-                let substring1 = &data1[i..i + k];
-                for &j in indices2 {
-                    let substring2 = &data2[j..j + k];
-                    if substring1 == substring2 {
-                        matches.push((i, j));
-                    }
-                }
-            }
-        }
-    }
+    let matches = compare_hashes(&hashes1, &hashes2, data1, data2, k);
 
     Ok(matches)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -158,8 +188,8 @@ mod tests {
         let powers = compute_base_powers(256, 3, 1_000_000_007);
         assert_eq!(powers.len(), 3);
         assert_eq!(powers[0], 65536); // 256^2
-        assert_eq!(powers[1], 256);    // 256^1
-        assert_eq!(powers[2], 1);      // 256^0
+        assert_eq!(powers[1], 256); // 256^1
+        assert_eq!(powers[2], 1); // 256^0
     }
 
     #[test]

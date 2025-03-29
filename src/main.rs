@@ -1,12 +1,9 @@
-mod rabin_karp;
-
-use rabin_karp::find_matching_substrings;
+use sequencercl::rabin_karp::find_matching_substrings;
 
 use std::fs;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -37,8 +34,14 @@ fn main() -> Result<()> {
     println!("Found {} matching substrings:", matches.len());
     for (i, j) in matches {
         let substring = String::from_utf8_lossy(&data1[i..i + args.k]);
-        println!("File1[{}..{}] == File2[{}..{}]: {:?}",
-            i, i + args.k, j, j + args.k, substring);
+        println!(
+            "File1[{}..{}] == File2[{}..{}]: {:?}",
+            i,
+            i + args.k,
+            j,
+            j + args.k,
+            substring
+        );
     }
 
     Ok(())

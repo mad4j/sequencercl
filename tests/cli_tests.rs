@@ -1,10 +1,9 @@
-
 #[cfg(test)]
 mod cli_tests {
     use anyhow::Result;
-    use std::io::Write;
     use assert_cmd::Command;
     use predicates::prelude::*;
+    use std::io::Write;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -12,7 +11,7 @@ mod cli_tests {
         // Create temporary files with some matching content
         let mut file1 = NamedTempFile::new()?;
         let mut file2 = NamedTempFile::new()?;
-        
+
         file1.write_all(b"hello world\nshared content\nanother line")?;
         file2.write_all(b"this has shared content\nin the middle")?;
 
@@ -77,7 +76,7 @@ mod cli_tests {
     fn test_cli_with_custom_parameters() -> Result<()> {
         let mut file1 = NamedTempFile::new()?;
         let mut file2 = NamedTempFile::new()?;
-        
+
         file1.write_all(b"abcde")?;
         file2.write_all(b"fghij")?;
 
@@ -107,7 +106,7 @@ mod cli_tests {
     fn test_cli_with_k_too_large() -> Result<()> {
         let mut file1 = NamedTempFile::new()?;
         let mut file2 = NamedTempFile::new()?;
-        
+
         file1.write_all(b"short")?;
         file2.write_all(b"short")?;
 
